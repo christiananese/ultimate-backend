@@ -1,35 +1,50 @@
 import { ModuleRef } from '@nestjs/core';
-import { DynamicModule, Global, Inject, Module, OnModuleDestroy, Provider } from '@nestjs/common';
+import {
+  DynamicModule,
+  Global,
+  Inject,
+  Module,
+  OnModuleDestroy,
+  Provider,
+} from '@nestjs/common';
 import * as hash from 'object-hash';
 
 import { getCurrentTenantToken } from '../../utils';
-import { getArangoClientToken, getArangoContainerToken, getArangoDbToken } from './database.util';
-import { ARANGO_DEFAULT_DATABASE_CONTAINER_NAME, ARANGO_DATABASE_CONTAINER_NAME } from '../../constants';
-import { ArangoModuleAsyncOptions, ArangoModuleOptions, ArangoOptionsFactory } from './interfaces/arango-options.interface';
-import { ARANGO_MODULE_OPTIONS, DEFAULT_ARANGO_DATABASE_OPTIONS } from './arango.constants';
+import { getArangoContainerToken, getArangoDbToken } from './database.util';
+import {
+  ARANGO_DEFAULT_DATABASE_CONTAINER_NAME,
+  ARANGO_DATABASE_CONTAINER_NAME,
+} from '../../constants';
+import {
+  ArangoModuleAsyncOptions,
+  ArangoModuleOptions,
+  ArangoOptionsFactory,
+} from './interfaces/arango-options.interface';
+import {
+  ARANGO_MODULE_OPTIONS,
+  DEFAULT_ARANGO_DATABASE_OPTIONS,
+} from './arango.constants';
 import { ArangoClientOption } from './interfaces';
 import { Database } from 'arangojs';
 import { ArangoDatabaseClient } from './arango.client';
 
 @Global()
-@Module({
-})
+@Module({})
 export class ArangoCoreModule implements OnModuleDestroy {
   private databaseClient: ArangoDatabaseClient;
   constructor(
-    @Inject(ARANGO_DATABASE_CONTAINER_NAME) private readonly containerName: string,
+    @Inject(ARANGO_DATABASE_CONTAINER_NAME)
+    private readonly containerName: string,
     private readonly moduleRef: ModuleRef,
   ) {
     this.databaseClient = new ArangoDatabaseClient();
   }
 
   static forRoot(
-    uri: string | string[],
     dbName: string,
-    clientOptions: ArangoClientOption = DEFAULT_ARANGO_DATABASE_OPTIONS,
+    clientOptions: ArangoClientOption,
     containerName: string = ARANGO_DEFAULT_DATABASE_CONTAINER_NAME,
   ): DynamicModule {
-
     const containerNameProvider = {
       provide: ARANGO_DATABASE_CONTAINER_NAME,
       useValue: containerName,
@@ -44,7 +59,7 @@ export class ArangoCoreModule implements OnModuleDestroy {
       provide: getArangoDbToken(containerName),
       useFactory: async (connections: Map<any, Database>) => {
         const key = hash.sha1({
-          uri,
+          dbName,
           clientOptions,
         });
         if (connections.has(key)) {
@@ -64,7 +79,6 @@ export class ArangoCoreModule implements OnModuleDestroy {
       useValue: {
         tenantId: null,
       },
-      inject: [getArangoClientToken(containerName)],
     };
 
     return {
@@ -80,28 +94,28 @@ export class ArangoCoreModule implements OnModuleDestroy {
   }
 
   static forRootAsync(options: ArangoModuleAsyncOptions): DynamicModule {
-    const mongoContainerName =
+    const arangoContainerName =
       options.containerName || ARANGO_DEFAULT_DATABASE_CONTAINER_NAME;
 
     const containerNameProvider = {
       provide: ARANGO_DATABASE_CONTAINER_NAME,
-      useValue: mongoContainerName,
+      useValue: arangoContainerName,
     };
 
     const connectionContainerProvider = {
-      provide: getArangoContainerToken(mongoContainerName),
+      provide: getArangoContainerToken(arangoContainerName),
       useFactory: () => new Map<any, Database>(),
     };
 
     const dbProvider = {
-      provide: getArangoDbToken(mongoContainerName),
+      provide: getArangoDbToken(arangoContainerName),
       useFactory: async (
         connections: Map<any, Database>,
-        mongoModuleOptions: ArangoModuleOptions,
+        arangoModuleOptions: ArangoModuleOptions,
       ) => {
-        const { uri, clientOptions } = mongoModuleOptions;
+        const { dbName, clientOptions } = arangoModuleOptions;
         const key = hash.sha1({
-          uri,
+          dbName,
           clientOptions,
         });
         if (connections.has(key)) {
@@ -109,11 +123,17 @@ export class ArangoCoreModule implements OnModuleDestroy {
         }
 
         const connection = new ArangoDatabaseClient();
-        const client = await connection.connect(mongoModuleOptions.dbName, clientOptions);
+        const client = await connection.connect(
+          arangoModuleOptions.dbName,
+          clientOptions,
+        );
         connections.set(key, client);
         return client;
       },
-      inject: [getArangoContainerToken(mongoContainerName), ARANGO_MODULE_OPTIONS],
+      inject: [
+        getArangoContainerToken(arangoContainerName),
+        ARANGO_MODULE_OPTIONS,
+      ],
     };
 
     const asyncProviders = this.createAsyncProviders(options);
@@ -134,11 +154,11 @@ export class ArangoCoreModule implements OnModuleDestroy {
   async onModuleDestroy() {
     const clientsMap: Map<any, Database> = this.moduleRef.get<
       Map<any, Database>
-      >(getArangoContainerToken(this.containerName));
+    >(getArangoContainerToken(this.containerName));
 
     if (clientsMap) {
       await Promise.all(
-        [...clientsMap.values()].map(connection => connection.close()),
+        [...clientsMap.values()].map((connection) => connection.close()),
       );
     }
   }
@@ -214,7 +234,7 @@ export class ArangoCoreModule implements OnModuleDestroy {
         inject: [options.useClass],
       };
     } else {
-      throw new Error('Invalid ArangoModule options');
+      throw new Error('Invalid RavenModule options');
     }
   }
 }

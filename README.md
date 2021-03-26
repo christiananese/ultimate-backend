@@ -3,7 +3,8 @@ ULTIMATE BACKEND
 </h1>  
     
 <p align="center">  
-  <bold>(WIP)</bold>: This is an enterprise scale advanced microservice pattern with GraphQL API and GRPC Microservices, based on Domain (DDD) using the command query responsibility segregation (CQRS) design pattern.  
+  <bold>(WIP)</bold>: This is an enterprise scale advanced microservice pattern with GraphQL API and GRPC Microservices, based on Domain (DDD) using the command query responsibility segregation (CQRS) design pattern.
+  Want to ask <a target="_blank" href="https://join.slack.com/t/ultimate-backend/shared_invite/zt-gd6kuuh2-B665Di4cRLqzVqXvhbmrHg">Rex Isaac Raphael</a> questions, join the slack channel :)
 </p>  
     <p align="center">  
 </p>  
@@ -21,7 +22,7 @@ ULTIMATE BACKEND
 ## Description  
   
 This should be the go to backend base for your next scalable project. This is a proof of concept project designed to be extremely slim and scalable, with distributed data request and process handling, built from the ground up for production use. It comes with Multi-Tenancy SaaS support, following different multi-tenancy database strategy as well as different resolver patterns  
-to identify your tenants. The goal is to give your next big project that extra leap to awesomeness. To get started read the instructions below.
+to identify your tenants. The goal is to give your next big project that extra leap to awesomeness. To get started read the instructions below. With support for both [Event Store](https://eventstore.org) and [NATS Streaming](https://nats.io) for event streaming and Kafka comming soon.
   
 > **Note:** Seeing alot of clone of the project which is good, but please if you can 🌟 the project as it also motivates me in improving the project. Also the docker azure CI setups is broken and will be fixed soon.
 > 
@@ -49,7 +50,7 @@ Software features
 * ✅ Service Discovery (Default on Consul), supports ectd, Kubernetes  
 * ✅ [React SSR Starter Kit](https://github.com/juicycleff/ultimate-backend-dashboard)
 * ❌ (WiP) Documentation  
-* ❌ (WiP) Webhooks  
+* ✅ (WiP) Webhooks  
 * ❌ (WiP) Support for language translation  
 * ❌ (WiP) GraphQL dataloaders
   
@@ -57,9 +58,9 @@ Software features
   
   |                |Required                          |Optional                         |
 |----------------|-------------------------------|-----------------------------|
-|`Store and cache`|[Event Store (Event Source Store)](https://eventstore.org), [Memcached (cache)](https://memcached.org/), [Redis (Queue)](https://redis.io/) and [MongoDB (Database)](https://www.mongodb.com/)            |[ArangoDB (Database)](https://www.arangodb.com/)            |
+|`Store and cache`|[Event Store (Event Source Store)](https://eventstore.org), [Redis (Queue & cache)](https://redis.io/) and [MongoDB (Database)](https://www.mongodb.com/)            |[ArangoDB (Database)](https://www.arangodb.com/), [NATS Streaming (Event Source Store)](https://nats.io)            |
 |`Stack and frameworks` |[NestJS (Server Framework)](https://nestjs.com), [NodeJS (System runtime)](https://nodejs.org), [Typescript](https://www.typescriptlang.org), [Express JS](https://expressjs.com), [Fastify](https://www.fastify.io), [GRPC](https://grpc.io/), [NestCloud](https://nestcloud.org/) and [Apollo GraphQL](https://www.apollographql.com)                |none            |
-|`Deployment and containerization`          |[Docker](https://www.docker.com/), [Azure Pipeline](https://azure.microsoft.com/en-us/services/devops/pipelines/) |[Kubernetes](https://kubernetes.io/)||
+|`Deployment and containerization`          |[Docker](https://www.docker.com/) |[Kubernetes](https://kubernetes.io/), [Azure Pipeline](https://azure.microsoft.com/en-us/services/devops/pipelines/), GitLab CI ||
 |`Service Registry`          |[Consul](https://consul.io/)|[Kubernetes](https://kubernetes.io/) and [etcd](https://etcd.io/)|
   
 
@@ -126,7 +127,7 @@ mongod
 If you have docker installed  
 ```bash  
 docker run -d -p 27017:27017 mongo  
-docker run -d -p 1113:1113 -p 2113:2113 eventstore/eventstore  
+docker run -d -p 1113:1113 -p 2113:2113 eventstore/eventstore --insecure # insecure flag specifies no certificate required - suitable for devmode 
 docker run -d -p 6379:6379 redis  
 ```  
   
@@ -137,12 +138,12 @@ You should start the microservices in any other. Example
   
 ```bash
   
-# Generate protobuf typescript definitions and please fix the path for timestamps import (You should do this only when you update the protobuf files)  
-# in `lib/proto-schem`  
-$ sh ./gen-ts.sh  
-  
-# Now build the proto-scheme lib (You should do this only when you update the protobuf files)  
-$ nest build proto-schema  
+# Generate protobuf typescript definitions and please fix the path for timestamps import (You should do this only when you update the protobuf files)
+# and also build the proto-scheme lib (You should do this only when you update the protobuf files)
+# in `lib/proto-schem`
+# Also adds configuration(config.example files) to consul K/V registry (consul need to be running)
+# You need jq and yq programs to use it   
+$ yarn setup:local
   
 # Start the account service  
 $ npx nest start service-account  
@@ -317,10 +318,12 @@ async function bootstrap() {
 #### Access token with scopes  
 Access tokens scopes just a combination of action and resource identifier. For example, take this mutation;
 ```typescript
+  @UseGuards(GqlAuthGuard)
   @Resource({ name: 'billing', identify: 'billing:card', roles: ['customer'], action: 'update' })
-  @Query(() => Card, {nullable: true})
-  async card(@Args('id') id: string, @Context() ctx: GqlContext): Promise<Card> {
-    const result = await this.service.billing.readCard({id}, setRpcContext(ctx)).toPromise();
+  @ResolveField(() => Card)
+  async create(@Args('input') input: CreateCardInput, @Context() ctx: GqlContext): Promise<Card> {
+    // @ts-ignore
+    const result = await this.service.billing.createCard({...input}, setRpcContext(ctx)).toPromise();
     return result.card;
   }
 ```
@@ -360,8 +363,7 @@ $ yarn run test:cov
 ```  
 
 ### Financial Contributors
-
-Become a financial contributor and help us help others in need, your contribution will go to people dire conditions in these difficult times. [[Contribute](https://opencollective.com/ultimate-backend/contribute)]
+Become a financial contributor. Your funds go to; people in need [[Contribute](https://opencollective.com/ultimate-backend/contribute)]
 
 #### Backers
 

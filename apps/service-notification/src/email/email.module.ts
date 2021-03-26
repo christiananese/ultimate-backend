@@ -1,5 +1,8 @@
 import { Module } from '@nestjs/common';
-import { EventStoreSubscriptionType, EventStoreModule } from '@juicycleff/nestjs-event-store';
+import {
+  EventStoreSubscriptionType,
+  EventStoreModule,
+} from '@juicycleff/nestjs-event-store';
 import {
   EmailVerifiedEvent,
   ForgotPasswordSentEvent,
@@ -16,6 +19,7 @@ import { BullConfigService } from '../configs/bull-config.service';
 @Module({
   imports: [
     EventStoreModule.registerFeature({
+      type: 'event-store',
       featureStreamName: '$ce-account',
       subscriptions: [
         {
@@ -27,7 +31,8 @@ import { BullConfigService } from '../configs/bull-config.service';
         UserLoggedInEvent: (data) => new UserLoggedInEvent(data),
         UserRegisteredEvent: (data) => new UserRegisteredEvent(data),
         EmailVerifiedEvent: (data) => new EmailVerifiedEvent(data),
-        VerificationEmailSentEvent: (data) => new VerificationEmailSentEvent(data),
+        VerificationEmailSentEvent: (data) =>
+          new VerificationEmailSentEvent(data),
         ForgotPasswordSentEvent: (data) => new ForgotPasswordSentEvent(data),
       },
     }),
@@ -36,10 +41,6 @@ import { BullConfigService } from '../configs/bull-config.service';
       useClass: BullConfigService,
     }),
   ],
-  providers: [
-    EmailService,
-    AuthProcess,
-    AuthSagas,
-  ],
+  providers: [EmailService, AuthProcess, AuthSagas],
 })
 export class EmailModule {}

@@ -7,17 +7,15 @@ import { User } from '../../users/types';
 @Directive(`@key(fields: "id")`)
 @ObjectType()
 export class Member extends Node {
-
-  @Filterable()
   @Field()
   email: string;
+
+  @Field({ nullable: true })
+  userId: string;
 
   @Filterable()
   @Field(() => InvitationStatus)
   status: InvitationStatus;
-
-  @Field(() => User)
-  user?: User;
 
   @Filterable()
   @Field(() => AppRole)

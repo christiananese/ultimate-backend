@@ -1,13 +1,13 @@
 import { ModuleMetadata, Type } from '@nestjs/common/interfaces';
+import { ArangoClientOption } from '@juicycleff/repo-orm/database';
 
 /**
  * Options that ultimately need to be provided to create a MongoDB connection
  */
 export interface ArangoModuleOptions {
   connectionName?: string;
-  uri: string | string [];
   dbName: string;
-  clientOptions?: any;
+  clientOptions: ArangoClientOption;
   tenantName?: string;
 }
 
@@ -19,7 +19,8 @@ export interface ArangoOptionsFactory {
  * Options available when creating the module asynchrously.  You should use only one of the
  * useExisting, useClass, or useFactory options for creation.
  */
-export interface ArangoModuleAsyncOptions extends Pick<ModuleMetadata, 'imports'> {
+export interface ArangoModuleAsyncOptions
+  extends Pick<ModuleMetadata, 'imports'> {
   /** A unique name for the container.  If not specified, a default one will be used. */
   containerName?: string;
 
@@ -34,7 +35,9 @@ export interface ArangoModuleAsyncOptions extends Pick<ModuleMetadata, 'imports'
   /**
    * A factory function that will populate the module options, such as URI and database name.
    */
-  useFactory?: (...args: any[]) => Promise<ArangoModuleOptions> | ArangoModuleOptions;
+  useFactory?: (
+    ...args: any[]
+  ) => Promise<ArangoModuleOptions> | ArangoModuleOptions;
 
   /**
    * Inject any dependencies required by the Mongo module, such as a configuration service

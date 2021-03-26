@@ -1,10 +1,8 @@
 import { ArgsType, Field, ID, InputType } from '@nestjs/graphql';
-import { AppRole, FilterMongo, InvitationStatus, PaginationInput } from '@ultimatebackend/contracts';
-import { Member } from './tenant-member.type';
+import { AppRole, InvitationStatus } from '@ultimatebackend/contracts';
 
 @InputType()
 export class InviteMemberInput {
-
   @Field({ nullable: true })
   email?: string;
 
@@ -17,7 +15,6 @@ export class InviteMemberInput {
 
 @InputType()
 export class UpdateMemberInput {
-
   @Field(() => ID, { nullable: true })
   id: string;
 
@@ -35,13 +32,19 @@ export class DeleteMemberInput {
 }
 
 @InputType()
-export class MemberFilterInput extends FilterMongo(Member, { simple: true }) {}
+export class MemberFilterInput {
+  @Field(() => InvitationStatus, { nullable: true })
+  status: InvitationStatus;
+
+  @Field(() => AppRole, { nullable: true })
+  role: AppRole;
+
+  @Field({ nullable: true })
+  tenantId: string;
+}
 
 @ArgsType()
 export class MemberFilterArgs {
   @Field(() => MemberFilterInput, { nullable: true })
   where?: MemberFilterInput;
-
-  @Field(() => PaginationInput, { nullable: true })
-  paginate?: PaginationInput;
 }

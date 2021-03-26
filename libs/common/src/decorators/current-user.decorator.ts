@@ -8,11 +8,6 @@ export const CurrentUser = createParamDecorator(
   },
 );
 
-export const GrpcCurrentUser = createParamDecorator(
-  (data, {args}) => {
-    console.log('***************');
-    console.log(data, args);
-    console.log('***************');
-    return args?.currentUser;
-  },
-);
+export const GrpcCurrentUser = createParamDecorator((data, { args }) => {
+  return args?.currentUser;
+});

@@ -1,8 +1,6 @@
 /* eslint-disable */
 import { Observable } from 'rxjs';
-import { Timestamp } from './google/protobuf/timestamp';
 import { Writer, Reader } from 'protobufjs/minimal';
-
 
 export interface Access {
   id: string;
@@ -10,8 +8,8 @@ export interface Access {
   tenantId: string;
   scopes: string[];
   name: string;
-  createdAt: Date | undefined;
-  updatedAt: Date | undefined;
+  createdAt: string;
+  updatedAt: string;
   active: boolean;
   createdBy: string;
 }
@@ -20,6 +18,7 @@ export interface CreateAccessRequest {
   tenantId: string;
   scopes: string[];
   name: string;
+  expireAt: string;
 }
 
 export interface CreateAccessResponse {
@@ -28,6 +27,7 @@ export interface CreateAccessResponse {
 
 export interface DeleteAccessRequest {
   id: string;
+  tenantId: string;
 }
 
 export interface DeleteAccessResponse {
@@ -44,7 +44,7 @@ export interface ReadAccessResponse {
 }
 
 export interface FindAccessRequest {
-  id: string;
+  filter: string;
   tenantId: string;
 }
 
@@ -68,8 +68,8 @@ const baseAccess: object = {
   tenantId: '',
   scopes: '',
   name: '',
-  createdAt: undefined,
-  updatedAt: undefined,
+  createdAt: '',
+  updatedAt: '',
   active: false,
   createdBy: '',
 };
@@ -78,6 +78,7 @@ const baseCreateAccessRequest: object = {
   tenantId: '',
   scopes: '',
   name: '',
+  expireAt: '',
 };
 
 const baseCreateAccessResponse: object = {
@@ -86,6 +87,7 @@ const baseCreateAccessResponse: object = {
 
 const baseDeleteAccessRequest: object = {
   id: '',
+  tenantId: '',
 };
 
 const baseDeleteAccessResponse: object = {
@@ -102,7 +104,7 @@ const baseReadAccessResponse: object = {
 };
 
 const baseFindAccessRequest: object = {
-  id: '',
+  filter: '',
   tenantId: '',
 };
 
@@ -121,59 +123,61 @@ const baseHasRightsResponse: object = {
 };
 
 export interface AccessService<Context extends DataLoaders> {
+  createAccess(
+    request: CreateAccessRequest,
+    ctx: Context,
+  ): Promise<CreateAccessResponse>;
 
-  createAccess(request: CreateAccessRequest, ctx: Context): Promise<CreateAccessResponse>;
+  deleteAccess(
+    request: DeleteAccessRequest,
+    ctx: Context,
+  ): Promise<DeleteAccessResponse>;
 
-  deleteAccess(request: DeleteAccessRequest, ctx: Context): Promise<DeleteAccessResponse>;
+  readAccess(
+    request: ReadAccessRequest,
+    ctx: Context,
+  ): Promise<ReadAccessResponse>;
 
-  readAccess(request: ReadAccessRequest, ctx: Context): Promise<ReadAccessResponse>;
+  findAccess(
+    request: FindAccessRequest,
+    ctx: Context,
+  ): Promise<FindAccessResponse>;
 
-  findAccess(request: FindAccessRequest, ctx: Context): Promise<FindAccessResponse>;
-
-  hasRights(request: HasRightsRequest, ctx: Context): Promise<HasRightsResponse>;
-
+  hasRights(
+    request: HasRightsRequest,
+    ctx: Context,
+  ): Promise<HasRightsResponse>;
 }
 
 export interface AccessServiceClient<Context extends DataLoaders> {
+  createAccess(
+    request: CreateAccessRequest,
+    ctx?: Context,
+  ): Observable<CreateAccessResponse>;
 
-  createAccess(request: CreateAccessRequest, ctx?: Context): Observable<CreateAccessResponse>;
+  deleteAccess(
+    request: DeleteAccessRequest,
+    ctx?: Context,
+  ): Observable<DeleteAccessResponse>;
 
-  deleteAccess(request: DeleteAccessRequest, ctx?: Context): Observable<DeleteAccessResponse>;
+  readAccess(
+    request: ReadAccessRequest,
+    ctx?: Context,
+  ): Observable<ReadAccessResponse>;
 
-  readAccess(request: ReadAccessRequest, ctx?: Context): Observable<ReadAccessResponse>;
+  findAccess(
+    request: FindAccessRequest,
+    ctx?: Context,
+  ): Observable<FindAccessResponse>;
 
-  findAccess(request: FindAccessRequest, ctx?: Context): Observable<FindAccessResponse>;
-
-  hasRights(request: HasRightsRequest, ctx?: Context): Observable<HasRightsResponse>;
-
+  hasRights(
+    request: HasRightsRequest,
+    ctx?: Context,
+  ): Observable<HasRightsResponse>;
 }
 
 interface DataLoaders {
-
   getDataLoader<T>(identifier: string, constructorFn: () => T): T;
-
-}
-
-function toTimestamp(date: Date): Timestamp {
-  const seconds = date.getTime() / 1_000;
-  const nanos = (date.getTime() % 1_000) * 1_000_000;
-  return { seconds, nanos };
-}
-
-function fromTimestamp(t: Timestamp): Date {
-  let millis = t.seconds * 1_000;
-  millis += t.nanos / 1_000_000;
-  return new Date(millis);
-}
-
-function fromJsonTimestamp(o: any): Date {
-  if (o instanceof Date) {
-    return o;
-  } else if (typeof o === 'string') {
-    return new Date(o);
-  } else {
-    return fromTimestamp(Timestamp.fromJSON(o));
-  }
 }
 
 export const Access = {
@@ -185,12 +189,8 @@ export const Access = {
       writer.uint32(34).string(v!);
     }
     writer.uint32(42).string(message.name);
-    if (message.createdAt !== undefined && message.createdAt !== undefined) {
-      Timestamp.encode(toTimestamp(message.createdAt), writer.uint32(66).fork()).ldelim();
-    }
-    if (message.updatedAt !== undefined && message.updatedAt !== undefined) {
-      Timestamp.encode(toTimestamp(message.updatedAt), writer.uint32(74).fork()).ldelim();
-    }
+    writer.uint32(66).string(message.createdAt);
+    writer.uint32(74).string(message.updatedAt);
     writer.uint32(80).bool(message.active);
     writer.uint32(90).string(message.createdBy);
     return writer;
@@ -218,10 +218,10 @@ export const Access = {
           message.name = reader.string();
           break;
         case 8:
-          message.createdAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+          message.createdAt = reader.string();
           break;
         case 9:
-          message.updatedAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+          message.updatedAt = reader.string();
           break;
         case 10:
           message.active = reader.bool();
@@ -265,14 +265,14 @@ export const Access = {
       message.name = '';
     }
     if (object.createdAt !== undefined && object.createdAt !== null) {
-      message.createdAt = fromJsonTimestamp(object.createdAt);
+      message.createdAt = String(object.createdAt);
     } else {
-      message.createdAt = undefined;
+      message.createdAt = '';
     }
     if (object.updatedAt !== undefined && object.updatedAt !== null) {
-      message.updatedAt = fromJsonTimestamp(object.updatedAt);
+      message.updatedAt = String(object.updatedAt);
     } else {
-      message.updatedAt = undefined;
+      message.updatedAt = '';
     }
     if (object.active !== undefined && object.active !== null) {
       message.active = Boolean(object.active);
@@ -317,12 +317,12 @@ export const Access = {
     if (object.createdAt !== undefined && object.createdAt !== null) {
       message.createdAt = object.createdAt;
     } else {
-      message.createdAt = undefined;
+      message.createdAt = '';
     }
     if (object.updatedAt !== undefined && object.updatedAt !== null) {
       message.updatedAt = object.updatedAt;
     } else {
-      message.updatedAt = undefined;
+      message.updatedAt = '';
     }
     if (object.active !== undefined && object.active !== null) {
       message.active = object.active;
@@ -342,13 +342,13 @@ export const Access = {
     obj.token = message.token || '';
     obj.tenantId = message.tenantId || '';
     if (message.scopes) {
-      obj.scopes = message.scopes.map(e => e || '');
+      obj.scopes = message.scopes.map((e) => e || '');
     } else {
       obj.scopes = [];
     }
     obj.name = message.name || '';
-    obj.createdAt = message.createdAt !== undefined ? message.createdAt.toISOString() : null;
-    obj.updatedAt = message.updatedAt !== undefined ? message.updatedAt.toISOString() : null;
+    obj.createdAt = message.createdAt || '';
+    obj.updatedAt = message.updatedAt || '';
     obj.active = message.active || false;
     obj.createdBy = message.createdBy || '';
     return obj;
@@ -356,17 +356,23 @@ export const Access = {
 };
 
 export const CreateAccessRequest = {
-  encode(message: CreateAccessRequest, writer: Writer = Writer.create()): Writer {
+  encode(
+    message: CreateAccessRequest,
+    writer: Writer = Writer.create(),
+  ): Writer {
     writer.uint32(10).string(message.tenantId);
     for (const v of message.scopes) {
       writer.uint32(18).string(v!);
     }
     writer.uint32(26).string(message.name);
+    writer.uint32(34).string(message.expireAt);
     return writer;
   },
   decode(reader: Reader, length?: number): CreateAccessRequest {
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = Object.create(baseCreateAccessRequest) as CreateAccessRequest;
+    const message = Object.create(
+      baseCreateAccessRequest,
+    ) as CreateAccessRequest;
     message.scopes = [];
     while (reader.pos < end) {
       const tag = reader.uint32();
@@ -380,6 +386,9 @@ export const CreateAccessRequest = {
         case 3:
           message.name = reader.string();
           break;
+        case 4:
+          message.expireAt = reader.string();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -388,7 +397,9 @@ export const CreateAccessRequest = {
     return message;
   },
   fromJSON(object: any): CreateAccessRequest {
-    const message = Object.create(baseCreateAccessRequest) as CreateAccessRequest;
+    const message = Object.create(
+      baseCreateAccessRequest,
+    ) as CreateAccessRequest;
     message.scopes = [];
     if (object.tenantId !== undefined && object.tenantId !== null) {
       message.tenantId = String(object.tenantId);
@@ -405,10 +416,17 @@ export const CreateAccessRequest = {
     } else {
       message.name = '';
     }
+    if (object.expireAt !== undefined && object.expireAt !== null) {
+      message.expireAt = String(object.expireAt);
+    } else {
+      message.expireAt = '';
+    }
     return message;
   },
   fromPartial(object: DeepPartial<CreateAccessRequest>): CreateAccessRequest {
-    const message = Object.create(baseCreateAccessRequest) as CreateAccessRequest;
+    const message = Object.create(
+      baseCreateAccessRequest,
+    ) as CreateAccessRequest;
     message.scopes = [];
     if (object.tenantId !== undefined && object.tenantId !== null) {
       message.tenantId = object.tenantId;
@@ -425,31 +443,45 @@ export const CreateAccessRequest = {
     } else {
       message.name = '';
     }
+    if (object.expireAt !== undefined && object.expireAt !== null) {
+      message.expireAt = object.expireAt;
+    } else {
+      message.expireAt = '';
+    }
     return message;
   },
   toJSON(message: CreateAccessRequest): unknown {
     const obj: any = {};
     obj.tenantId = message.tenantId || '';
     if (message.scopes) {
-      obj.scopes = message.scopes.map(e => e || '');
+      obj.scopes = message.scopes.map((e) => e || '');
     } else {
       obj.scopes = [];
     }
     obj.name = message.name || '';
+    obj.expireAt = message.expireAt || '';
     return obj;
   },
 };
 
 export const CreateAccessResponse = {
-  encode(message: CreateAccessResponse, writer: Writer = Writer.create()): Writer {
-    if (message.accessToken !== undefined && message.accessToken !== undefined) {
+  encode(
+    message: CreateAccessResponse,
+    writer: Writer = Writer.create(),
+  ): Writer {
+    if (
+      message.accessToken !== undefined &&
+      message.accessToken !== undefined
+    ) {
       Access.encode(message.accessToken, writer.uint32(10).fork()).ldelim();
     }
     return writer;
   },
   decode(reader: Reader, length?: number): CreateAccessResponse {
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = Object.create(baseCreateAccessResponse) as CreateAccessResponse;
+    const message = Object.create(
+      baseCreateAccessResponse,
+    ) as CreateAccessResponse;
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -464,7 +496,9 @@ export const CreateAccessResponse = {
     return message;
   },
   fromJSON(object: any): CreateAccessResponse {
-    const message = Object.create(baseCreateAccessResponse) as CreateAccessResponse;
+    const message = Object.create(
+      baseCreateAccessResponse,
+    ) as CreateAccessResponse;
     if (object.accessToken !== undefined && object.accessToken !== null) {
       message.accessToken = Access.fromJSON(object.accessToken);
     } else {
@@ -473,7 +507,9 @@ export const CreateAccessResponse = {
     return message;
   },
   fromPartial(object: DeepPartial<CreateAccessResponse>): CreateAccessResponse {
-    const message = Object.create(baseCreateAccessResponse) as CreateAccessResponse;
+    const message = Object.create(
+      baseCreateAccessResponse,
+    ) as CreateAccessResponse;
     if (object.accessToken !== undefined && object.accessToken !== null) {
       message.accessToken = Access.fromPartial(object.accessToken);
     } else {
@@ -483,24 +519,35 @@ export const CreateAccessResponse = {
   },
   toJSON(message: CreateAccessResponse): unknown {
     const obj: any = {};
-    obj.accessToken = message.accessToken ? Access.toJSON(message.accessToken) : undefined;
+    obj.accessToken = message.accessToken
+      ? Access.toJSON(message.accessToken)
+      : undefined;
     return obj;
   },
 };
 
 export const DeleteAccessRequest = {
-  encode(message: DeleteAccessRequest, writer: Writer = Writer.create()): Writer {
+  encode(
+    message: DeleteAccessRequest,
+    writer: Writer = Writer.create(),
+  ): Writer {
     writer.uint32(10).string(message.id);
+    writer.uint32(18).string(message.tenantId);
     return writer;
   },
   decode(reader: Reader, length?: number): DeleteAccessRequest {
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = Object.create(baseDeleteAccessRequest) as DeleteAccessRequest;
+    const message = Object.create(
+      baseDeleteAccessRequest,
+    ) as DeleteAccessRequest;
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
         case 1:
           message.id = reader.string();
+          break;
+        case 2:
+          message.tenantId = reader.string();
           break;
         default:
           reader.skipType(tag & 7);
@@ -510,40 +557,63 @@ export const DeleteAccessRequest = {
     return message;
   },
   fromJSON(object: any): DeleteAccessRequest {
-    const message = Object.create(baseDeleteAccessRequest) as DeleteAccessRequest;
+    const message = Object.create(
+      baseDeleteAccessRequest,
+    ) as DeleteAccessRequest;
     if (object.id !== undefined && object.id !== null) {
       message.id = String(object.id);
     } else {
       message.id = '';
     }
+    if (object.tenantId !== undefined && object.tenantId !== null) {
+      message.tenantId = String(object.tenantId);
+    } else {
+      message.tenantId = '';
+    }
     return message;
   },
   fromPartial(object: DeepPartial<DeleteAccessRequest>): DeleteAccessRequest {
-    const message = Object.create(baseDeleteAccessRequest) as DeleteAccessRequest;
+    const message = Object.create(
+      baseDeleteAccessRequest,
+    ) as DeleteAccessRequest;
     if (object.id !== undefined && object.id !== null) {
       message.id = object.id;
     } else {
       message.id = '';
+    }
+    if (object.tenantId !== undefined && object.tenantId !== null) {
+      message.tenantId = object.tenantId;
+    } else {
+      message.tenantId = '';
     }
     return message;
   },
   toJSON(message: DeleteAccessRequest): unknown {
     const obj: any = {};
     obj.id = message.id || '';
+    obj.tenantId = message.tenantId || '';
     return obj;
   },
 };
 
 export const DeleteAccessResponse = {
-  encode(message: DeleteAccessResponse, writer: Writer = Writer.create()): Writer {
-    if (message.accessToken !== undefined && message.accessToken !== undefined) {
+  encode(
+    message: DeleteAccessResponse,
+    writer: Writer = Writer.create(),
+  ): Writer {
+    if (
+      message.accessToken !== undefined &&
+      message.accessToken !== undefined
+    ) {
       Access.encode(message.accessToken, writer.uint32(10).fork()).ldelim();
     }
     return writer;
   },
   decode(reader: Reader, length?: number): DeleteAccessResponse {
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = Object.create(baseDeleteAccessResponse) as DeleteAccessResponse;
+    const message = Object.create(
+      baseDeleteAccessResponse,
+    ) as DeleteAccessResponse;
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -558,7 +628,9 @@ export const DeleteAccessResponse = {
     return message;
   },
   fromJSON(object: any): DeleteAccessResponse {
-    const message = Object.create(baseDeleteAccessResponse) as DeleteAccessResponse;
+    const message = Object.create(
+      baseDeleteAccessResponse,
+    ) as DeleteAccessResponse;
     if (object.accessToken !== undefined && object.accessToken !== null) {
       message.accessToken = Access.fromJSON(object.accessToken);
     } else {
@@ -567,7 +639,9 @@ export const DeleteAccessResponse = {
     return message;
   },
   fromPartial(object: DeepPartial<DeleteAccessResponse>): DeleteAccessResponse {
-    const message = Object.create(baseDeleteAccessResponse) as DeleteAccessResponse;
+    const message = Object.create(
+      baseDeleteAccessResponse,
+    ) as DeleteAccessResponse;
     if (object.accessToken !== undefined && object.accessToken !== null) {
       message.accessToken = Access.fromPartial(object.accessToken);
     } else {
@@ -577,7 +651,9 @@ export const DeleteAccessResponse = {
   },
   toJSON(message: DeleteAccessResponse): unknown {
     const obj: any = {};
-    obj.accessToken = message.accessToken ? Access.toJSON(message.accessToken) : undefined;
+    obj.accessToken = message.accessToken
+      ? Access.toJSON(message.accessToken)
+      : undefined;
     return obj;
   },
 };
@@ -644,8 +720,14 @@ export const ReadAccessRequest = {
 };
 
 export const ReadAccessResponse = {
-  encode(message: ReadAccessResponse, writer: Writer = Writer.create()): Writer {
-    if (message.accessToken !== undefined && message.accessToken !== undefined) {
+  encode(
+    message: ReadAccessResponse,
+    writer: Writer = Writer.create(),
+  ): Writer {
+    if (
+      message.accessToken !== undefined &&
+      message.accessToken !== undefined
+    ) {
       Access.encode(message.accessToken, writer.uint32(10).fork()).ldelim();
     }
     return writer;
@@ -686,14 +768,16 @@ export const ReadAccessResponse = {
   },
   toJSON(message: ReadAccessResponse): unknown {
     const obj: any = {};
-    obj.accessToken = message.accessToken ? Access.toJSON(message.accessToken) : undefined;
+    obj.accessToken = message.accessToken
+      ? Access.toJSON(message.accessToken)
+      : undefined;
     return obj;
   },
 };
 
 export const FindAccessRequest = {
   encode(message: FindAccessRequest, writer: Writer = Writer.create()): Writer {
-    writer.uint32(10).string(message.id);
+    writer.uint32(10).string(message.filter);
     writer.uint32(18).string(message.tenantId);
     return writer;
   },
@@ -704,7 +788,7 @@ export const FindAccessRequest = {
       const tag = reader.uint32();
       switch (tag >>> 3) {
         case 1:
-          message.id = reader.string();
+          message.filter = reader.string();
           break;
         case 2:
           message.tenantId = reader.string();
@@ -718,10 +802,10 @@ export const FindAccessRequest = {
   },
   fromJSON(object: any): FindAccessRequest {
     const message = Object.create(baseFindAccessRequest) as FindAccessRequest;
-    if (object.id !== undefined && object.id !== null) {
-      message.id = String(object.id);
+    if (object.filter !== undefined && object.filter !== null) {
+      message.filter = String(object.filter);
     } else {
-      message.id = '';
+      message.filter = '';
     }
     if (object.tenantId !== undefined && object.tenantId !== null) {
       message.tenantId = String(object.tenantId);
@@ -732,10 +816,10 @@ export const FindAccessRequest = {
   },
   fromPartial(object: DeepPartial<FindAccessRequest>): FindAccessRequest {
     const message = Object.create(baseFindAccessRequest) as FindAccessRequest;
-    if (object.id !== undefined && object.id !== null) {
-      message.id = object.id;
+    if (object.filter !== undefined && object.filter !== null) {
+      message.filter = object.filter;
     } else {
-      message.id = '';
+      message.filter = '';
     }
     if (object.tenantId !== undefined && object.tenantId !== null) {
       message.tenantId = object.tenantId;
@@ -746,14 +830,17 @@ export const FindAccessRequest = {
   },
   toJSON(message: FindAccessRequest): unknown {
     const obj: any = {};
-    obj.id = message.id || '';
+    obj.filter = message.filter || '';
     obj.tenantId = message.tenantId || '';
     return obj;
   },
 };
 
 export const FindAccessResponse = {
-  encode(message: FindAccessResponse, writer: Writer = Writer.create()): Writer {
+  encode(
+    message: FindAccessResponse,
+    writer: Writer = Writer.create(),
+  ): Writer {
     for (const v of message.accessToken) {
       Access.encode(v!, writer.uint32(10).fork()).ldelim();
     }
@@ -799,7 +886,9 @@ export const FindAccessResponse = {
   toJSON(message: FindAccessResponse): unknown {
     const obj: any = {};
     if (message.accessToken) {
-      obj.accessToken = message.accessToken.map(e => e ? Access.toJSON(e) : undefined);
+      obj.accessToken = message.accessToken.map((e) =>
+        e ? Access.toJSON(e) : undefined,
+      );
     } else {
       obj.accessToken = [];
     }
@@ -931,14 +1020,14 @@ export const HasRightsResponse = {
 
 type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends Array<infer U>
-  ? Array<DeepPartial<U>>
-  : T[P] extends ReadonlyArray<infer U>
-  ? ReadonlyArray<DeepPartial<U>>
-  : T[P] extends Date | Function | Uint8Array | undefined
-  ? T[P]
-  : T[P] extends infer U | undefined
-  ? DeepPartial<U>
-  : T[P] extends object
-  ? DeepPartial<T[P]>
-  : T[P]
+    ? Array<DeepPartial<U>>
+    : T[P] extends ReadonlyArray<infer U>
+    ? ReadonlyArray<DeepPartial<U>>
+    : T[P] extends Date | Function | Uint8Array | undefined
+    ? T[P]
+    : T[P] extends infer U | undefined
+    ? DeepPartial<U>
+    : T[P] extends object
+    ? DeepPartial<T[P]>
+    : T[P];
 };

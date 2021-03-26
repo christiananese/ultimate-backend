@@ -4,9 +4,18 @@ import * as getPort from 'get-port';
 import { NestCloud } from '@nestcloud/core';
 import { SERVICE_NAME } from './constants';
 import { AppModule } from './app.module';
-import { AppUtils, authSetup, bloodTearsMiddleware, corsOptions, setupSwagger } from '@ultimatebackend/common';
+import {
+  AppUtils,
+  authSetup,
+  bloodTearsMiddleware,
+  corsOptions,
+  setupSwagger,
+} from '@ultimatebackend/common';
 import { SwaggerModule } from '@nestjs/swagger';
-import { enableMultiTenancy, TenantDatabaseStrategy } from '@ultimatebackend/core/mutiltenancy';
+import {
+  enableMultiTenancy,
+  TenantDatabaseStrategy,
+} from '@ultimatebackend/core/mutiltenancy';
 
 async function bootstrap() {
   const app = NestCloud.create(await NestFactory.create(AppModule));
@@ -14,21 +23,25 @@ async function bootstrap() {
   app.enableCors(corsOptions);
   app.use(bloodTearsMiddleware);
   AppUtils.killAppWithGrace(app);
-  authSetup(app, true);
 
   /** Authentication middleware for multi support */
-  app.use(enableMultiTenancy({
-    enabled: true,
-    tenantResolver: {
-      resolverType: 'Header',
-      headerKeys: {
-        tenant: 'x-tenant-id',
-        apiKey: 'x-tenant-key',
+  authSetup(app, true);
+
+  /** Multitenant middleware for multitenancy database strategy support */
+  app.use(
+    enableMultiTenancy({
+      enabled: true,
+      tenantResolver: {
+        resolverType: 'Header',
+        headerKeys: {
+          tenant: 'x-tenant-id',
+          apiKey: 'x-tenant-key',
+        },
+        requiresToken: true,
       },
-      requiresToken: true,
-    },
-    databaseStrategy: TenantDatabaseStrategy.DataIsolation,
-  }));
+      databaseStrategy: TenantDatabaseStrategy.DataIsolation,
+    }),
+  );
 
   const document = SwaggerModule.createDocument(app, setupSwagger());
   SwaggerModule.setup('docs', app, document);
